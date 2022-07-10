@@ -22,11 +22,10 @@ func ErrorHandlerMiddleware(spkey string) gin.HandlerFunc {
 		if len(ctx.Errors) > 0 {
 			errs := make([]error, len(ctx.Errors))
 			berr := (*gorr.Error)(nil)
-			var temp *gorr.Error
 			for idx, err := range ctx.Errors {
 				errs[idx] = err.Err
-				if berr != nil && errors.As(err.Err, &temp) {
-					berr = temp
+				if berr == nil  {
+					berr, _ = err.Err.(*gorr.Error) 
 				}
 			}
 			lgr.Error("errors processing request", zap.Errors("error", errs))
