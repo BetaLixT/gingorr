@@ -13,11 +13,14 @@ import (
 	"go.uber.org/zap"
 )
 
-func ErrorHandlerMiddleware(spkey string) gin.HandlerFunc {
+func ErrorHandlerMiddleware(
+	lgrProv ILoggerFactory,
+	txInfoKey string,
+) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		tctx := ctx.MustGet(spkey).(IServiceProvider)
+		
 		ctx.Next()
-		lgr := tctx.GetLogger()
+		lgr := lgrProv.NewLogger(ctx) 
 
 		if len(ctx.Errors) > 0 {
 			errs := make([]error, len(ctx.Errors))
@@ -51,30 +54,13 @@ func ErrorHandlerMiddleware(spkey string) gin.HandlerFunc {
 }
 
 func RecoveryMiddleware(
-	spkey string,
-	logger *zap.Logger,
+	lgrProv ILoggerFactory,
+	txInfoKey string,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tctxAny, exists := c.Get(spkey) 
 		defer func() {
 			if err := recover(); err != nil {
-				
-				// Dependent on the txgenerator
-				// Making it more resilient to avoid errors
-				lgr := (*zap.Logger)(nil)
-				if !exists {
-					lgr = logger
-				} else if tctx, ok := tctxAny.(IServiceProvider); !ok {
-					lgr = logger
-				} else {
-					lgr = tctx.GetLogger()
-				}
-
-				// In case the get logger fails
-				if lgr == nil {
-					lgr = logger
-				}	
-				
+				lgr := lgrProv.NewLogger(c)	
 				perr, ok := err.(gorr.Error)
 				if ok {
 					c.JSON(perr.StatusCode, perr)
